@@ -1,0 +1,125 @@
+﻿@model IEnumerable<FSD.Core.Entities.Sale>
+
+@{
+    ViewData["Title"] = "Satış Raporları";
+    var productSummary = ViewBag.ProductSummary as List<FSD.WebUI.Controllers.ProductReportItem>;
+    var generalTotal = (decimal)ViewBag.GeneralTotal;
+    var startDate = (string)ViewBag.StartDate;
+    var endDate = (string)ViewBag.EndDate;
+}
+
+<div class="container mt-4">
+    <h2>Satış Raporları</h2>
+
+    <!-- Filtreleme Formu -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Başlangıç Tarihi</label>
+                    <input type="date" name="startDate" class="form-control" value="@startDate" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Bitiş Tarihi</label>
+                    <input type="date" name="endDate" class="form-control" value="@endDate" />
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Filtrele</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Özet Kartlar -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5>Genel Toplam Satış</h5>
+                    <h3>@generalTotal.ToString("C")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h5>Toplam Satış Adedi</h5>
+                    <h3>@Model.Count() adet</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ürün Bazlı Özet -->
+    <h4>Ürün Bazlı Satış Özeti</h4>
+    <table id="productSummaryTable" class="table table-striped table-bordered mb-5">
+        <thead class="table-dark">
+            <tr>
+                <th>Ürün Adı</th>
+                <th class="text-center">Satılan Adet</th>
+                <th class="text-end">Toplam Gelir</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in productSummary)
+            {
+                <tr>
+                    <td>@item.ProductName</td>
+                    <td class="text-center">@item.TotalQuantity</td>
+                    <td class="text-end">@item.TotalRevenue.ToString("C")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Detaylı Satış Listesi -->
+    <h4>Detaylı Satış Listesi</h4>
+    <table id="salesTable" class="table table-striped table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Fiş No</th>
+                <th>Tarih</th>
+                <th>Satışçı</th>
+                <th class="text-end">Tutar</th>
+                <th>Detay</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sale in Model)
+            {
+                <tr>
+                    <td>#@sale.Id</td>
+                    <td>@sale.SaleDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@sale.User?.FullName</td>
+                    <td class="text-end">@sale.TotalAmount.ToString("C")</td>
+                    <td>
+                        <a href="/Sale/Receipt/@sale.Id" class="btn btn-sm btn-info">Fişi Gör</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#productSummaryTable').DataTable({
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Excel\'e Aktar',
+                        className: 'btn btn-success mb-3',
+                        title: 'Urun_Bazli_Rapor_' + new Date().toISOString().slice(0, 10)
+                    }
+                ]
+            });
+
+            $('#salesTable').DataTable({
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' }
+            });
+        });
+    </script>
+}

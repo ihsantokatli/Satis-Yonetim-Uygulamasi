@@ -1,0 +1,16 @@
+# Build
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Ortam dosyaları (güvenlik için)
+appsettings.Development.json
+appsettings.Production.json
+
+# Publish
+publish/
+out/

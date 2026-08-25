@@ -1,0 +1,188 @@
+﻿@{
+    ViewData["Title"] = "Satış Ekranı";
+    var products = ViewBag.Products as List<FSD.Core.Entities.Product>;
+    var usdRate = (decimal)ViewBag.UsdRate;
+    var eurRate = (decimal)ViewBag.EurRate;
+}
+
+<div class="container mt-4">
+    <h2>Satış Ekranı</h2>
+
+    <div class="row">
+        <!-- SOL: Ürün Seçimi -->
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5>Ürün Ekle</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ürün</label>
+                        <select id="productSelect" class="form-select">
+                            <option value="">Seçin...</option>
+                            @foreach (var p in products)
+                            {
+                                <option value="@p.Id" data-price="@p.Price">
+                                    @p.Name - @p.Price.ToString("C")
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Adet</label>
+                        <input type="number" id="quantity" class="form-control" value="1" min="1" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Birim Fiyat (Boş = Varsayılan)</label>
+                        <input type="number" id="customPrice" class="form-control" step="0.01" />
+                    </div>
+                    <button onclick="addToCart()" class="btn btn-success w-100">Sepete Ekle</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SAĞ: Sepet -->
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5>Sepet</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Ürün</th>
+                                <th>Adet</th>
+                                <th>Birim</th>
+                                <th>Tutar</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cartBody">
+                            <!-- Sepet buraya JS ile gelecek -->
+                        </tbody>
+                    </table>
+
+                    <hr />
+                    <div class="row">
+                        <div class="col-6">
+                            <h5>Toplam:</h5>
+                        </div>
+                        <div class="col-6 text-end">
+                            <h4 id="cartTotal">0,00 ₺</h4>
+                            <div class="text-muted">
+                                ≈ <span id="usdTotal">0,00</span> USD<br />
+                                ≈ <span id="eurTotal">0,00</span> EUR
+                            </div>
+                            <small>Kur: 1$=@usdRate ₺ | 1€=@eurRate ₺</small>
+                        </div>
+                    </div>
+
+                    <button onclick="completeSale()" class="btn btn-primary w-100 mt-3" id="btnComplete" disabled>
+                        Satışı Tamamla
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var usdRate = @(usdRate.ToString().Replace(",", "."));
+        var eurRate = @(eurRate.ToString().Replace(",", "."));
+
+        function addToCart() {
+            var productId = document.getElementById('productSelect').value;
+            var quantity = document.getElementById('quantity').value;
+            var customPrice = document.getElementById('customPrice').value;
+
+            if (!productId) {
+                alert('Ürün seçin');
+                return;
+            }
+
+            // AJAX ile POST gönder
+            fetch('/Sale/AddToCart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'productId=' + productId + '&quantity=' + quantity + '&customPrice=' + (customPrice || '')
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadCart();
+                    document.getElementById('productSelect').value = '';
+                    document.getElementById('quantity').value = 1;
+                    document.getElementById('customPrice').value = '';
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Bir hata oluştu, konsolu kontrol edin (F12)');
+            });
+        }
+
+        function loadCart() {
+            fetch('/Sale/GetCartItems')
+                .then(r => r.json())
+                .then(items => {
+                    var html = '';
+                    var total = 0;
+
+                    if (items.length === 0) {
+                        html = '<tr><td colspan="5" class="text-center text-muted">Sepet boş</td></tr>';
+                        document.getElementById('btnComplete').disabled = true;
+                    } else {
+                        document.getElementById('btnComplete').disabled = false;
+                        items.forEach(item => {
+                            var itemTotal = item.unitPrice * item.quantity;
+                            total += itemTotal;
+                            html += '<tr>' +
+                                '<td>' + item.productName + '</td>' +
+                                '<td>' + item.quantity + '</td>' +
+                                '<td>' + item.unitPrice.toLocaleString('tr-TR', {minimumFractionDigits:2}) + ' ₺</td>' +
+                                '<td>' + itemTotal.toLocaleString('tr-TR', {minimumFractionDigits:2}) + ' ₺</td>' +
+                                '<td><button onclick="removeItem(' + item.productId + ')" class="btn btn-danger btn-sm">×</button></td>' +
+                                '</tr>';
+                        });
+                    }
+
+                    document.getElementById('cartBody').innerHTML = html;
+                    document.getElementById('cartTotal').innerText = total.toLocaleString('tr-TR', {minimumFractionDigits:2}) + ' ₺';
+                    document.getElementById('usdTotal').innerText = (total / usdRate).toFixed(2);
+                    document.getElementById('eurTotal').innerText = (total / eurRate).toFixed(2);
+                });
+        }
+
+        function removeItem(productId) {
+            fetch('/Sale/RemoveFromCart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'productId=' + productId
+            })
+            .then(r => r.json())
+            .then(() => loadCart());
+        }
+
+        function completeSale() {
+            if (!confirm('Satışı tamamlamak istiyor musunuz?')) return;
+
+            fetch('/Sale/CompleteSale', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Satış tamamlandı! Fiş No: ' + data.saleId);
+                        window.location.href = '/Sale/Receipt/' + data.saleId;
+                    } else {
+                        alert(data.message);
+                    }
+                });
+        }
+
+        // Sayfa yüklenince sepeti getir
+        loadCart();
+    </script>
+}
